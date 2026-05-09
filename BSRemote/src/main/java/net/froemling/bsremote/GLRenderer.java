@@ -183,6 +183,7 @@ public class GLRenderer implements GLSurfaceView.Renderer {
   volatile float runButtonY;
   volatile float runButtonWidth;
   volatile float runButtonHeight;
+  volatile boolean runButtonVisible = true;
 
   volatile float joystickCenterX;
   volatile float joystickCenterY;
@@ -309,9 +310,11 @@ public class GLRenderer implements GLSurfaceView.Renderer {
     _drawBox(throwButtonX, throwButtonY, throwButtonWidth * bs,
         throwButtonHeight * bs, 1, 1, 1,
         throwPressed ? _buttonThrowPressedTex : _buttonThrowTex);
-    _drawBox(runButtonX, runButtonY, runButtonWidth * bs,
-            runButtonHeight * bs, 1, 1, 1,
-            runPressed ? _buttonRunPressedTex : _buttonRunTex);
+    if (runButtonVisible) {
+      _drawBox(runButtonX, runButtonY, runButtonWidth * bs,
+              runButtonHeight * bs, 1, 1, 1,
+              runPressed ? _buttonRunPressedTex : _buttonRunTex);
+    }
 
     float cs = 2.2f;
     _drawBox(joystickCenterX, joystickCenterY, joystickWidth * cs,

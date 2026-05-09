@@ -97,6 +97,11 @@ class MyGLSurfaceView extends GLSurfaceView {
 
   String _dPadType;
 
+  float _runButtonScale;
+  String _runButtonMode;  // "tap" | "hold" | "disable"
+  boolean _runToggleActive = false;
+  int _runTapTouchId = -1;
+
   public MyGLSurfaceView(Context context) {
     super(context);
 
@@ -136,6 +141,14 @@ class MyGLSurfaceView extends GLSurfaceView {
       _dPadType = "floating";
     }
 
+    _runButtonScale = preferences.getFloat("runButtonScale", 1.0f);
+    _runButtonMode = preferences.getString("runButtonMode", "hold");
+    assert _runButtonMode != null;
+    if (!(_runButtonMode.equals("tap") || _runButtonMode.equals("hold")
+        || _runButtonMode.equals("disable"))) {
+      _runButtonMode = "hold";
+    }
+
     _keyPickUp = preferences.getInt("keyPickUp", KeyEvent.KEYCODE_BUTTON_Y);
     _keyJump = preferences.getInt("keyJump", KeyEvent.KEYCODE_BUTTON_A);
     _keyPunch = preferences.getInt("keyPunch", KeyEvent.KEYCODE_BUTTON_X);
@@ -165,6 +178,8 @@ class MyGLSurfaceView extends GLSurfaceView {
     editor.putFloat("buttonOffsX", _buttonOffsX);
     editor.putFloat("buttonOffsY", _buttonOffsY);
     editor.putString("dPadType", _dPadType);
+    editor.putFloat("runButtonScale", _runButtonScale);
+    editor.putString("runButtonMode", _runButtonMode);
 
     editor.putInt("keyPickUp", _keyPickUp);
     editor.putInt("keyJump", _keyJump);
@@ -226,10 +241,11 @@ class MyGLSurfaceView extends GLSurfaceView {
     _gl.jumpButtonWidth = bWidth;
     _gl.jumpButtonHeight = bHeight;
 
-    _gl.runButtonX = 0.9f * _buttonScale;
-    _gl.runButtonY = 0.07f * _buttonScale;
-    _gl.runButtonWidth = 0.04f * _buttonScale;
-    _gl.runButtonHeight = 0.04f * _buttonScale;
+    _gl.runButtonX = 0.9f * _runButtonScale;
+    _gl.runButtonY = 0.07f * _runButtonScale;
+    _gl.runButtonWidth = 0.04f * _runButtonScale;
+    _gl.runButtonHeight = 0.04f * _runButtonScale;
+    _gl.runButtonVisible = !_runButtonMode.equals("disable");
 
     _gl.joystickCenterX = _dPadCenterX;
     _gl.joystickCenterY = _dPadCenterY;
@@ -260,20 +276,18 @@ class MyGLSurfaceView extends GLSurfaceView {
     boolean throwHeld = false;
     boolean jumpHeld = false;
     boolean bombHeld = false;
+    // runHeld is only used in hold mode; tap mode manages state separately
     boolean runHeld = false;
 
     float mult = 1.0f / getWidth();
     final int pointerCount = event.getPointerCount();
+    int actionPointerIndex = event.getActionIndex();
+    int action = event.getActionMasked();
+
+    // scale factor for run button hit-testing (uses _runButtonScale)
+    float runS = 4.0f / _runButtonScale;
 
     for (int i = 0; i < pointerCount; i++) {
-
-      // ignore touch-up events
-      int actionPointerIndex = event.getActionIndex();
-      int action = event.getActionMasked();
-      if ((action == MotionEvent.ACTION_UP ||
-          action == MotionEvent.ACTION_POINTER_UP) && i == actionPointerIndex) {
-        continue;
-      }
 
       int touch = event.getPointerId(i);
 
@@ -298,6 +312,30 @@ class MyGLSurfaceView extends GLSurfaceView {
       pbx = (x - _gl.punchButtonX) * s;
       pby = (y - _gl.punchButtonY) * s;
       punchLen = len = (float) Math.sqrt(pbx * pbx + pby * pby);
+      // ignore touch-up events for action buttons
+      if ((action == MotionEvent.ACTION_UP ||
+          action == MotionEvent.ACTION_POINTER_UP) && i == actionPointerIndex) {
+        // still compute runLen below for tap-mode tracking, skip action buttons
+        pbx = (x - _gl.throwButtonX) * s;
+        pby = (y - _gl.throwButtonY) * s;
+        throwLen = (float) Math.sqrt(pbx * pbx + pby * pby);
+        pbx = (x - _gl.jumpButtonX) * s;
+        pby = (y - _gl.jumpButtonY) * s;
+        jumpLen = (float) Math.sqrt(pbx * pbx + pby * pby);
+        pbx = (x - _gl.bombButtonX) * s;
+        pby = (y - _gl.bombButtonY) * s;
+        bombLen = (float) Math.sqrt(pbx * pbx + pby * pby);
+        pbx = (x - _gl.runButtonX) * runS;
+        pby = (y - _gl.runButtonY) * runS;
+        runLen = (float) Math.sqrt(pbx * pbx + pby * pby);
+
+        // tap-mode: detect the lifting of a tap on the run button
+        if (_runButtonMode.equals("tap") && touch == _runTapTouchId) {
+          _runTapTouchId = -1;  // finger lifted; tap counted on down, nothing else to do
+        }
+        continue;
+      }
+
       if (len < threshold) {
         punchHeld = true;
       }
@@ -326,11 +364,11 @@ class MyGLSurfaceView extends GLSurfaceView {
         bombHeld = true;
       }
 
-      // run
-      pbx = (x - _gl.runButtonX) * s;
-      pby = (y - _gl.runButtonY) * s;
+      // run — hit-test uses _runButtonScale-based scale
+      pbx = (x - _gl.runButtonX) * runS;
+      pby = (y - _gl.runButtonY) * runS;
       runLen = len = (float) Math.sqrt(pbx * pbx + pby * pby);
-      if (len < threshold) {
+      if (!_runButtonMode.equals("disable") && len < threshold) {
         runHeld = true;
       }
 
@@ -356,9 +394,28 @@ class MyGLSurfaceView extends GLSurfaceView {
         } else if (bombLen < punchLen && bombLen < throwLen &&
                   bombLen < jumpLen && bombLen < runLen) {
           bombHeld = true;
-        } else {
+        } else if (!_runButtonMode.equals("disable")) {
           runHeld = true;
+        } else {
+          // run is disabled — fall back to punch as nearest action button
+          punchHeld = true;
         }
+      }
+
+      // tap mode: on a fresh finger-down over the run button, toggle state
+      if (_runButtonMode.equals("tap") && runHeld &&
+          (action == MotionEvent.ACTION_DOWN ||
+           action == MotionEvent.ACTION_POINTER_DOWN) &&
+          i == actionPointerIndex && touch != _runTapTouchId) {
+        _runTapTouchId = touch;
+        _runToggleActive = !_runToggleActive;
+        if (_runToggleActive) {
+          _handleRunPress();
+        } else {
+          _handleRunRelease();
+        }
+        // tap handled — no further hold processing for run this frame
+        runHeld = false;
       }
     }
 
@@ -405,12 +462,15 @@ class MyGLSurfaceView extends GLSurfaceView {
       _handleJumpRelease();
     }
 
-    // send run events for non-held ones we're now over
-    if ((!runWasHeld) && runHeld) {
-      _handleRunPress();
-    }
-    if (runWasHeld && !runHeld) {
-      _handleRunRelease();
+    // hold mode: send run events for non-held ones we're now over
+    // (tap mode fires immediately on down above; disable mode never sets runHeld)
+    if (_runButtonMode.equals("hold")) {
+      if ((!runWasHeld) && runHeld) {
+        _handleRunPress();
+      }
+      if (runWasHeld && !runHeld) {
+        _handleRunRelease();
+      }
     }
 
   }
@@ -645,6 +705,80 @@ class MyGLSurfaceView extends GLSurfaceView {
       @Override
       public void onClick(View v) {
         _dPadType = "fixed";
+        _savePrefs();
+      }
+    });
+
+    seekbar = d.findViewById(R.id.seekBarRunButtonSize);
+    seekbar.setProgress(
+        (int) (100.0f * (_runButtonScale - _sizeMin) / (_sizeMax - _sizeMin)));
+    seekbar.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+      public void onProgressChanged(SeekBar seekBar, int progress,
+                                    boolean fromUser) {
+        _runButtonScale = _sizeMin + (_sizeMax - _sizeMin) * (progress / 100.0f);
+        _updateSizes();
+        requestRender();
+      }
+
+      public void onStartTrackingTouch(SeekBar seekBar) {
+      }
+
+      public void onStopTrackingTouch(SeekBar seekBar) {
+        _savePrefs();
+      }
+    });
+
+    RadioButton runTapButton = d.findViewById(R.id.radioButtonRunTap);
+    RadioButton runHoldButton = d.findViewById(R.id.radioButtonRunHold);
+    RadioButton runDisabledButton = d.findViewById(R.id.radioButtonRunDisabled);
+
+    if (_runButtonMode.equals("tap")) {
+      runTapButton.setChecked(true);
+    } else if (_runButtonMode.equals("disable")) {
+      runDisabledButton.setChecked(true);
+    } else {
+      runHoldButton.setChecked(true);
+    }
+
+    runTapButton.setOnClickListener(new RadioButton.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        _runButtonMode = "tap";
+        // switching away from tap: release if currently toggled on
+        if (_runToggleActive) {
+          _runToggleActive = false;
+          _handleRunRelease();
+        }
+        _updateSizes();
+        requestRender();
+        _savePrefs();
+      }
+    });
+    runHoldButton.setOnClickListener(new RadioButton.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        _runButtonMode = "hold";
+        // switching away from tap: release if currently toggled on
+        if (_runToggleActive) {
+          _runToggleActive = false;
+          _handleRunRelease();
+        }
+        _updateSizes();
+        requestRender();
+        _savePrefs();
+      }
+    });
+    runDisabledButton.setOnClickListener(new RadioButton.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        _runButtonMode = "disable";
+        // release run if it was active in any mode
+        if (_runToggleActive) {
+          _runToggleActive = false;
+        }
+        _handleRunRelease();
+        _updateSizes();
+        requestRender();
         _savePrefs();
       }
     });

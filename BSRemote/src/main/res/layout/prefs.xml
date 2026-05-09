@@ -112,6 +112,54 @@
                 android:text="@string/fixed" />
         </RadioGroup>
 
+        <TextView
+            android:id="@+id/textViewRunButtonSize"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="6dp"
+            android:gravity="center_horizontal"
+            android:text="@string/runButtonSize"
+            android:textAppearance="?android:attr/textAppearanceSmall" />
+
+        <SeekBar
+            android:id="@+id/seekBarRunButtonSize"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="6dp" />
+
+        <TextView
+            android:id="@+id/textViewRunButtonMode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="6dp"
+            android:gravity="center_horizontal"
+            android:text="@string/runButtonMode"
+            android:textAppearance="?android:attr/textAppearanceSmall" />
+
+        <RadioGroup
+            android:id="@+id/radioGrpRunButtonMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_margin="0dp"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/radioButtonRunTap"
+                android:layout_margin="6dp"
+                android:text="@string/tap" />
+
+            <RadioButton
+                android:id="@+id/radioButtonRunHold"
+                android:layout_margin="6dp"
+                android:text="@string/hold" />
+
+            <RadioButton
+                android:id="@+id/radioButtonRunDisabled"
+                android:layout_margin="6dp"
+                android:text="@string/disabled" />
+        </RadioGroup>
+
         <Button
             android:id="@+id/buttonConfigureHardwareButtons"
             style="?android:attr/buttonStyleSmall"
