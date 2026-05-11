@@ -16,10 +16,12 @@
     <string name="floating">floating</string>
     <string name="fixed">fixed</string>
     <string name="runButtonSize">Run Button Size</string>
+    <string name="runButtonPosition">Run Button Position</string>
     <string name="runButtonMode">Run Button Mode</string>
     <string name="tap">tap</string>
     <string name="hold">hold</string>
     <string name="disabled">disabled</string>
+    <string name="customise">Customise</string>
     <string name="configHardwareButtons">Hardware Buttons…</string>
     <string name="playerName">Player Name</string>
     <string name="defaultButtonText">default</string>

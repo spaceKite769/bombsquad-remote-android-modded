@@ -128,6 +128,27 @@
             android:layout_margin="6dp" />
 
         <TextView
+            android:id="@+id/textViewRunButtonPosition"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="6dp"
+            android:gravity="center_horizontal"
+            android:text="@string/runButtonPosition"
+            android:textAppearance="?android:attr/textAppearanceSmall" />
+
+        <SeekBar
+            android:id="@+id/seekBarRunButtonPosition1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="6dp" />
+
+        <SeekBar
+            android:id="@+id/seekBarRunButtonPosition2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="6dp" />
+
+        <TextView
             android:id="@+id/textViewRunButtonMode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -102,6 +102,14 @@ class MyGLSurfaceView extends GLSurfaceView {
   boolean _runToggleActive = false;
   int _runTapTouchId = -1;
 
+  float _runButtonOffsX;
+  float _runButtonOffsY;
+
+  float _runButtonOffsXMin = -2.8f;
+  float _runButtonOffsXMax = 0.25f;
+  float _runButtonOffsYMin = -1.0f;
+  float _runButtonOffsYMax = 0.8f;
+
   public MyGLSurfaceView(Context context) {
     super(context);
 
@@ -148,6 +156,8 @@ class MyGLSurfaceView extends GLSurfaceView {
         || _runButtonMode.equals("disable"))) {
       _runButtonMode = "hold";
     }
+    _runButtonOffsX = preferences.getFloat("runButtonOffsX", 0.0f);
+    _runButtonOffsY = preferences.getFloat("runButtonOffsY", 0.0f);
 
     _keyPickUp = preferences.getInt("keyPickUp", KeyEvent.KEYCODE_BUTTON_Y);
     _keyJump = preferences.getInt("keyJump", KeyEvent.KEYCODE_BUTTON_A);
@@ -180,6 +190,8 @@ class MyGLSurfaceView extends GLSurfaceView {
     editor.putString("dPadType", _dPadType);
     editor.putFloat("runButtonScale", _runButtonScale);
     editor.putString("runButtonMode", _runButtonMode);
+    editor.putFloat("runButtonOffsX", _runButtonOffsX);
+    editor.putFloat("runButtonOffsY", _runButtonOffsY);
 
     editor.putInt("keyPickUp", _keyPickUp);
     editor.putInt("keyJump", _keyJump);
@@ -241,8 +253,9 @@ class MyGLSurfaceView extends GLSurfaceView {
     _gl.jumpButtonWidth = bWidth;
     _gl.jumpButtonHeight = bHeight;
 
-    _gl.runButtonX = 0.9f * _runButtonScale;
-    _gl.runButtonY = 0.07f * _runButtonScale;
+    // run button: position uses offsets (independent of size), only width/height scale
+    _gl.runButtonX = 0.9f + _runButtonOffsX * 0.3f;
+    _gl.runButtonY = height * 0.1f - _runButtonOffsY * 0.3f;
     _gl.runButtonWidth = 0.04f * _runButtonScale;
     _gl.runButtonHeight = 0.04f * _runButtonScale;
     _gl.runButtonVisible = !_runButtonMode.equals("disable");
@@ -368,7 +381,9 @@ class MyGLSurfaceView extends GLSurfaceView {
       pbx = (x - _gl.runButtonX) * runS;
       pby = (y - _gl.runButtonY) * runS;
       runLen = len = (float) Math.sqrt(pbx * pbx + pby * pby);
-      if (!_runButtonMode.equals("disable") && len < threshold) {
+      // threshold sized to match visual: runButtonWidth(0.04) * drawScale(2.8) / 2 * runS(4.0) = 0.224
+      float runThreshold = 0.224f;
+      if (!_runButtonMode.equals("disable") && len < runThreshold) {
         runHeld = true;
       }
 
@@ -381,24 +396,20 @@ class MyGLSurfaceView extends GLSurfaceView {
       // ..so lets find the closest button && press it.
       // this will probably coincide with what we just set above but that's
       // ok.
+      // note: run is intentionally excluded here; it lives at a different
+      // position and is only triggered by the explicit runThreshold check.
       if (x > 0.5 && bx > -1.0 * buttonBuffer && bx < 1.0 * buttonBuffer &&
           by > -1.0 * buttonBuffer && by < 1.0 * buttonBuffer) {
-        if (punchLen < throwLen && punchLen < jumpLen && punchLen < bombLen && punchLen < runLen) {
+        if (punchLen <= throwLen && punchLen <= jumpLen && punchLen <= bombLen) {
           punchHeld = true;
-        } else if (throwLen < punchLen && throwLen < jumpLen &&
-            throwLen < bombLen && throwLen < runLen) {
+        } else if (throwLen <= punchLen && throwLen <= jumpLen &&
+            throwLen <= bombLen) {
           throwHeld = true;
-        } else if (jumpLen < punchLen && jumpLen < throwLen &&
-            jumpLen < bombLen && jumpLen < runLen) {
+        } else if (jumpLen <= punchLen && jumpLen <= throwLen &&
+            jumpLen <= bombLen) {
           jumpHeld = true;
-        } else if (bombLen < punchLen && bombLen < throwLen &&
-                  bombLen < jumpLen && bombLen < runLen) {
-          bombHeld = true;
-        } else if (!_runButtonMode.equals("disable")) {
-          runHeld = true;
         } else {
-          // run is disabled — fall back to punch as nearest action button
-          punchHeld = true;
+          bombHeld = true;
         }
       }
 
@@ -716,6 +727,46 @@ class MyGLSurfaceView extends GLSurfaceView {
       public void onProgressChanged(SeekBar seekBar, int progress,
                                     boolean fromUser) {
         _runButtonScale = _sizeMin + (_sizeMax - _sizeMin) * (progress / 100.0f);
+        _updateSizes();
+        requestRender();
+      }
+
+      public void onStartTrackingTouch(SeekBar seekBar) {
+      }
+
+      public void onStopTrackingTouch(SeekBar seekBar) {
+        _savePrefs();
+      }
+    });
+    seekbar = d.findViewById(R.id.seekBarRunButtonPosition1);
+    seekbar.setProgress(
+        (int) (100.0f * (_runButtonOffsX - _runButtonOffsXMin) /
+            (_runButtonOffsXMax - _runButtonOffsXMin)));
+    seekbar.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+      public void onProgressChanged(SeekBar seekBar, int progress,
+                                    boolean fromUser) {
+        _runButtonOffsX = _runButtonOffsXMin +
+            (_runButtonOffsXMax - _runButtonOffsXMin) * (progress / 100.0f);
+        _updateSizes();
+        requestRender();
+      }
+
+      public void onStartTrackingTouch(SeekBar seekBar) {
+      }
+
+      public void onStopTrackingTouch(SeekBar seekBar) {
+        _savePrefs();
+      }
+    });
+    seekbar = d.findViewById(R.id.seekBarRunButtonPosition2);
+    seekbar.setProgress(
+        (int) (100.0f * (_runButtonOffsY - _runButtonOffsYMin) /
+            (_runButtonOffsYMax - _runButtonOffsYMin)));
+    seekbar.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+      public void onProgressChanged(SeekBar seekBar, int progress,
+                                    boolean fromUser) {
+        _runButtonOffsY = _runButtonOffsYMin +
+            (_runButtonOffsYMax - _runButtonOffsYMin) * (progress / 100.0f);
         _updateSizes();
         requestRender();
       }
@@ -1757,6 +1808,7 @@ public class GamePadActivity extends Activity {
   private String[] _addrsRaw;
 
   private boolean _newStyle;
+  private boolean _customiseMode = false;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -1791,7 +1843,8 @@ public class GamePadActivity extends Activity {
     }
 
     Bundle extras = getIntent().getExtras();
-    if (extras != null) {
+    _customiseMode = (extras != null && extras.getBoolean("customiseMode", false));
+    if (!_customiseMode && extras != null) {
       _newStyle = extras.getBoolean("newStyle");
       _port = extras.getInt("connectPort");
       try {
@@ -1826,6 +1879,7 @@ public class GamePadActivity extends Activity {
 
     // all the read-thread does is wait for data to come in
     // and pass it to the process-thread
+    if (!_customiseMode) {
     _readThread.doRunnable(new Runnable() {
       public void run() {
         while (true) {
@@ -1873,6 +1927,7 @@ public class GamePadActivity extends Activity {
         }
       }
     });
+    } // end if (!_customiseMode)
 
     super.onCreate(savedInstanceState);
 
@@ -1884,8 +1939,14 @@ public class GamePadActivity extends Activity {
     mLayout.addView(mGLView);
 
     _lagMeter = new TextView(this);
-    _lagMeter.setTextColor(0xFF00FF00);
-    _lagMeter.setText("--");
+    if (_customiseMode) {
+      // 0xFFFF6666 matches the repo's red used for high-lag text
+      _lagMeter.setTextColor(0xFFFF6666);
+      _lagMeter.setText("Exit to connect to a game");
+    } else {
+      _lagMeter.setTextColor(0xFF00FF00);
+      _lagMeter.setText("--");
+    }
     RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
         RelativeLayout.LayoutParams.WRAP_CONTENT,
         RelativeLayout.LayoutParams.WRAP_CONTENT);
@@ -1906,6 +1967,7 @@ public class GamePadActivity extends Activity {
     _shuttingDown = true;
     _shutDownStartTime = SystemClock.uptimeMillis();
 
+    if (!_customiseMode) {
     // Create our shutdown timer.. this will keep us
     // trying to disconnect cleanly with the server until
     // we get confirmation or we give up.
@@ -1934,6 +1996,7 @@ public class GamePadActivity extends Activity {
         }, 0, 100);
       }
     });
+    } // end if (!_customiseMode)
 
     // let our gl view clean up anything it needs to
     if (mGLView != null) {
@@ -1961,6 +2024,7 @@ public class GamePadActivity extends Activity {
     }
 
     // tell our worker thread to start its update timer
+    if (!_customiseMode) {
     _processThread.doRunnable(new Runnable() {
       public void run() {
         // kick off an id request... (could just wait for the process
@@ -2003,21 +2067,23 @@ public class GamePadActivity extends Activity {
 
       }
     });
+    } // end if (!_customiseMode)
 
   }
 
   protected void onStop() {
     super.onStop();
 
-    _processThread.doRunnable(new Runnable() {
-      public void run() {
-        _processTimer.cancel();
-        _processTimer.purge();
-        _processUITimer.cancel();
-        _processUITimer.purge();
-      }
-    });
-
+    if (!_customiseMode) {
+      _processThread.doRunnable(new Runnable() {
+        public void run() {
+          _processTimer.cancel();
+          _processTimer.purge();
+          _processUITimer.cancel();
+          _processUITimer.purge();
+        }
+      });
+    }
 
   }
 
@@ -2322,6 +2388,7 @@ public class GamePadActivity extends Activity {
   }
 
   void _doStateChange(boolean force) {
+    if (_customiseMode) return;
     if (_usingProtocolV2) {
       _doStateChangeV2(force);
     } else {

@@ -464,6 +464,13 @@ public class ScanActivity extends Activity {
 
       ipDialog.show();
       return true;
+    } else if (item.getItemId() == R.id.menu_customise) {
+
+      // launch the controller in customise mode (no game connection)
+      Intent myIntent = new Intent(ScanActivity.this, GamePadActivity.class);
+      myIntent.putExtra("customiseMode", true);
+      startActivity(myIntent);
+      return true;
     } else {
       return false;
     }

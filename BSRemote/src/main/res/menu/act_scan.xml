@@ -6,4 +6,9 @@
         android:title="@string/joinByAddress">
     </item>
 
+    <item
+        android:id="@+id/menu_customise"
+        android:title="@string/customise">
+    </item>
+
 </menu>
