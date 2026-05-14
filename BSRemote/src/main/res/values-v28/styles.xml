@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppBaseTheme for v28+ (Android P+) to allow drawing edge-to-edge behind the notch -->
+    <style name="AppBaseTheme" parent="android:Theme.Black.NoTitleBar.Fullscreen">
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>
